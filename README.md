@@ -95,6 +95,13 @@ pdf-to-md --backend auto input/Doc.pdf
 pdf-to-md --backend docling input/Doc.pdf output/Doc.docling.md
 ```
 
+Bulk conversion (directories):
+
+```bash
+pdf-to-md batch input --output-dir output --recursive
+pdf-to-md --backend docling batch /data/pdfs --output-dir /data/md --workers 2
+```
+
 ## Installation (recommended)
 
 Editable install:
