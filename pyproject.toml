@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pdf-to-md"
+version = "0.1.0"
+description = "Convert PDFs to Markdown (poppler, PyMuPDF4LLM, Docling)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Unai" }]
+keywords = ["pdf", "markdown", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Repository = "https://github.com/newuni/pdf-to-md"
+
+# Keep the base install lightweight; heavy backends are optional extras.
+dependencies = []
+
+[project.optional-dependencies]
+docling = ["docling>=2.0.0"]
+pymupdf4llm = ["pymupdf4llm>=0.3.0"]
+
+[project.scripts]
+pdf-to-md = "pdf_to_md.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdf_to_md"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"

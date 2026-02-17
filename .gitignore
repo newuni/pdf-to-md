@@ -1,0 +1,39 @@
+.DS_Store
+
+# Local env
+.venv/
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+.coverage
+.coverage.*
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Artifacts
+input/*
+output/*
+!input/.gitkeep
+!output/.gitkeep
+
+# Default: don't commit PDFs except small regression samples.
+*.pdf
+!samples/**/*.pdf
+
+# Build
+dist/
+build/
