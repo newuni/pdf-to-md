@@ -109,18 +109,6 @@ With optional backends:
 python3 -m pip install -e ".[docling,pymupdf4llm]"
 ```
 
-Local "install an executable on PATH" helper:
-
-```bash
-./install_cli.sh
-```
-
-Legacy wrapper (backwards compatibility):
-
-```bash
-./legacy/pdf_to_md.sh --backend auto input/Doc.pdf
-```
-
 ## Notes
 
 - `docling` and `poppler` depend on external binaries/environment; the CLI will fail with a clear error if something is missing.
