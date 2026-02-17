@@ -1,5 +1,11 @@
 # Repository Guidelines
 
+## Status Tracking Discipline (`wiki/status.md`)
+
+- For every implementation task in this project, update `wiki/status.md` immediately after finishing the task with the real result and evidence.
+- Do not start the next task until the previous task status is reflected in `wiki/status.md`.
+- Keep task state aligned with reality at all times (`Todo`, `Parcial`, `Pendiente`, `Bloqueada`) and include the next concrete action.
+
 ## Project Structure & Module Organization
 - `pdf_to_md/cli.py` holds the conversion pipeline (Python CLI orchestrating poppler/docling/pymupdf4llm + cleanup). Factor new behaviors into dedicated helper functions rather than expanding the main flow inline.
 - Store authoritative PDFs under `input/`. Commit only compact samples needed for regression checks under `samples/` and ignore large files in `.gitignore`.
