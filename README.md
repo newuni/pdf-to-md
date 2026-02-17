@@ -1,48 +1,52 @@
 # pdf-to-md
 
-CLI para convertir PDFs a Markdown con varios backends:
+CLI to convert PDFs to Markdown with multiple backends:
 
-- `poppler` (externo): `pdftohtml`/`pdftotext` + limpieza.
-- `pymupdf4llm` (Python): Markdown directo via PyMuPDF4LLM.
-- `docling` (CLI/Python): Markdown con mejor estructura/layout.
-- `auto`: elige `docling` si esta disponible, si no `pymupdf4llm`, si no `poppler`.
+- `poppler` (external): `pdftohtml`/`pdftotext` + cleanup.
+- `pymupdf4llm` (Python): direct Markdown via PyMuPDF4LLM.
+- `docling` (CLI/Python): better layout/structure extraction.
+- `auto`: prefers `docling`, then `pymupdf4llm`, then `poppler` (based on availability).
 
-## Estructura
+## Repository Layout
 
-- `input/`: PDFs de entrada (internos, no versionar si son grandes).
-- `output/`: Markdown generado (artefactos).
-- `reference/`: Markdown curado (goldens esperados).
-- `samples/`: PDFs pequenos para regresion.
+- `input/`: input PDFs (typically internal, do not commit large files).
+- `output/`: generated Markdown artifacts.
+- `reference/`: curated Markdown (golden expected outputs).
+- `samples/`: small PDFs for regression checks.
 
-## Uso
+## Usage
 
-Sin instalar (desde el repo):
-
-```bash
-PYTHONPATH=./src python3 -m pdf_to_md --backend docling input/Documento.pdf output/Documento.docling.md
-```
-
-Wrapper legacy:
+Without installing (from the repo):
 
 ```bash
-./legacy/pdf_to_md.sh --backend auto input/Documento.pdf
+python3 -m pdf_to_md --backend docling input/Doc.pdf output/Doc.docling.md
 ```
 
-## Instalacion (recomendada)
+Legacy wrapper:
 
-Editable:
+```bash
+./legacy/pdf_to_md.sh --backend auto input/Doc.pdf
+```
+
+## Installation (recommended)
+
+Editable install:
 
 ```bash
 python3 -m pip install -e .
 ```
 
-Con backends opcionales:
+With optional backends:
 
 ```bash
 python3 -m pip install -e ".[docling,pymupdf4llm]"
 ```
 
-## Notas
+## Notes
 
-- `docling` y `poppler` dependen de binarios/entorno; si falta algo el CLI dara un error claro.
-- Para PDFs escaneados, mas adelante se puede integrar un paso OCR (por ahora solo se detecta y se avisa).
+- `docling` and `poppler` depend on external binaries/environment; the CLI will fail with a clear error if something is missing.
+- Scanned PDFs: an OCR pre-step can be added later (for now we only do a lightweight "looks scanned" detection and warn).
+
+## Security
+
+Even for internal PDFs, consider running the conversion in a sandbox (container, no network, resource limits) if you process untrusted files.

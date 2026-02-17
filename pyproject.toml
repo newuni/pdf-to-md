@@ -19,11 +19,11 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
-[project.urls]
-Repository = "https://github.com/newuni/pdf-to-md"
-
 # Keep the base install lightweight; heavy backends are optional extras.
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/newuni/pdf-to-md"
 
 [project.optional-dependencies]
 docling = ["docling>=2.0.0"]

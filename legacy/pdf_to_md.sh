@@ -15,6 +15,6 @@ if [[ -x "$root_dir/.venv/bin/python" ]]; then
   export PATH="$root_dir/.venv/bin:$PATH"
 fi
 
-export PYTHONPATH="$root_dir/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$root_dir${PYTHONPATH:+:$PYTHONPATH}"
 
 exec "$python_bin" -m pdf_to_md "$@"

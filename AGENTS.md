@@ -1,14 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/pdf_to_md/cli.py` holds the conversion pipeline (Python CLI orchestrating poppler/docling/pymupdf4llm + cleanup). Factor new behaviors into dedicated helper functions rather than expanding the main flow inline.
+- `pdf_to_md/cli.py` holds the conversion pipeline (Python CLI orchestrating poppler/docling/pymupdf4llm + cleanup). Factor new behaviors into dedicated helper functions rather than expanding the main flow inline.
 - `legacy/pdf_to_md.sh` is a legacy wrapper that runs the Python CLI (prefers `./.venv/` when present).
 - Store authoritative PDFs under `input/`. Commit only compact samples needed for regression checks under `samples/` and ignore large files in `.gitignore`.
 - Treat generated Markdown as artifacts; keep curated outputs in `reference/` with clear filenames like `sample_contract.md` to showcase expected formatting.
 
 ## Build, Test, and Development Commands
 - `pdf-to-md input/MyDoc.pdf output/MyDoc.md`: converts a PDF (install with `python3 -m pip install -e .`).
-- `PYTHONPATH=./src python3 -m pdf_to_md input/MyDoc.pdf output/MyDoc.md`: run without installing.
+- `python3 -m pdf_to_md input/MyDoc.pdf output/MyDoc.md`: run from the repo without installing.
 - `./legacy/pdf_to_md.sh ...`: legacy wrapper for convenience/backwards compatibility.
 - `pdftohtml -v` or `pdftotext -v`: confirm conversion backends are available; document their versions in PR descriptions.
 
