@@ -41,6 +41,39 @@ cd pdf-to-md
 python3 scripts/convert_pdf.py input/Doc.pdf output/Doc.md
 ```
 
+### Using Docker (no local installs)
+
+Build a minimal image (includes Poppler tools; does not include heavy optional backends):
+
+```bash
+docker build -t pdf-to-md .
+```
+
+Convert a PDF from your current directory:
+
+```bash
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD":/work -w /work pdf-to-md input/Doc.pdf output/Doc.md
+```
+
+Convert a PDF from any local path:
+
+```bash
+PDF="/absolute/path/to/Doc.pdf"
+OUT="/absolute/path/to/Doc.md"
+
+docker run --rm \
+  -v "$(dirname "$PDF")":/in \
+  -v "$(dirname "$OUT")":/out \
+  pdf-to-md \
+  "/in/$(basename "$PDF")" "/out/$(basename "$OUT")"
+```
+
+Optional: build a larger image with extra backends:
+
+```bash
+docker build -t pdf-to-md:full --build-arg EXTRAS=full .
+```
+
 ## Backends
 
 - `auto`: prefers `docling`, then `pymupdf4llm`, then `poppler` (based on availability).
