@@ -124,3 +124,13 @@ python3 -m pip install -e ".[docling,pymupdf4llm]"
 ## Security
 
 Even for internal PDFs, consider running the conversion in a sandbox (container, no network, resource limits) if you process untrusted files.
+
+
+## Responsible Use
+
+Use this project only for lawful, authorized purposes.
+
+
+## Third-Party Services & Trademarks
+
+Third-party names and trademarks belong to their respective owners; no affiliation is implied.
