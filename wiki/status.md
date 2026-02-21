@@ -14,13 +14,15 @@
 | T02 | Add `batch` subcommand for directory bulk conversion | Completada | `pdf_to_md/cli.py` adds `batch`; help shows `COMMAND` with `convert` and `batch` | Add basic tests for batch planning and skip rules |
 | T03 | Document bulk usage in CLI help + README | Completada | `pdf-to-md --help` and `pdf-to-md batch --help` include examples; `README.md` includes bulk examples | Keep README examples in sync with CLI flags |
 | T04 | Validate `batch` end-to-end on repo `input/` | Completada | Ran `pdf-to-md batch input --output-dir /tmp/pdf-to-md-batch-out --recursive --glob "*.pdf" --workers 2` with `converted=10 failed=0` | Add a `--report jsonl` option for CI/auditing |
+| T05 | Add default image OCR enrichment and Docker-ready OCR dependencies | Completada | `pdf_to_md/cli.py` now runs image OCR by default and injects `[OCR_IMAGE ...]` blocks; `Dockerfile` installs `tesseract-ocr` + `libgl1`; validated with Docker: `pdf-to-md:full --backend poppler` and `--backend docling` on `input/OpenTok - Análisis técnico.pdf` (`Warning: image OCR inserted 11 block(s)`) | Add automated tests for OCR block insertion and markdown anchoring |
 
 ## Releases
 
 | Version | Date (UTC) | Notes |
 |---|---:|---|
-| v1.0.0 | 2026-02-17 | Initial stable release |
+| v1.2.0 | 2026-02-21 | Default image OCR enrichment (`[OCR_IMAGE ...]`), Docker full OCR/runtime fixes (`tesseract` + `libgl1`), README update |
 | v1.1.0 | 2026-02-17 | Cleanup release (removed obsolete legacy scripts) |
+| v1.0.0 | 2026-02-17 | Initial stable release |
 
 ## Backlog
 

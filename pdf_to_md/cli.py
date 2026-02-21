@@ -19,6 +19,12 @@ from unicodedata import normalize
 
 from . import __version__
 
+_IMAGE_ANCHOR_RE = re.compile(
+    r"(?i)(^<!--\s*image\s*-->$|captura de pantalla|screenshot|"
+    r"\.(?:png|jpe?g|webp)\b)"
+)
+_PYMUPDF_PAGE_END_RE = re.compile(r"^---\s*end of page=(\d+)\s*---\s*$", re.IGNORECASE)
+
 
 def _which(cmd: str) -> str | None:
     return shutil.which(cmd)
@@ -31,6 +37,13 @@ def _die(msg: str, code: int = 2) -> int:
 
 def _warn(msg: str) -> None:
     print(f"Warning: {msg}", file=sys.stderr)
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _read_stdin_text() -> str:
@@ -271,6 +284,292 @@ def convert_with_docling(
         return md_files[0].read_text(encoding="utf-8", errors="replace")
 
 
+@dataclass(frozen=True)
+class ImageOcrBlock:
+    page: int
+    order: int
+    text: str
+
+
+def _normalize_for_match(text: str) -> str:
+    normalized = normalize("NFKC", text).lower()
+    return re.sub(r"[^a-z0-9]+", "", normalized)
+
+
+def _cleanup_ocr_text(raw: str) -> str:
+    text = normalize("NFKC", raw).replace("\r\n", "\n").replace("\r", "\n")
+    lines: list[str] = []
+    previous_blank = False
+
+    for line in text.split("\n"):
+        clean = re.sub(r"\s+", " ", line).strip()
+        if not clean:
+            if not previous_blank:
+                lines.append("")
+            previous_blank = True
+            continue
+        previous_blank = False
+        lines.append(clean)
+
+    out = "\n".join(lines).strip()
+    return out
+
+
+def _alnum_count(text: str) -> int:
+    return sum(1 for ch in text if ch.isalnum())
+
+
+def _ocr_pixmap_with_tesseract(
+    png_path: str, *, lang: str, min_chars: int
+) -> str:
+    best = ""
+    best_score = 0
+    for psm in ("6", "11"):
+        proc = subprocess.run(
+            ["tesseract", png_path, "stdout", "-l", lang, "--psm", psm],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if proc.returncode != 0:
+            continue
+        text = _cleanup_ocr_text(proc.stdout.decode("utf-8", errors="replace"))
+        score = _alnum_count(text)
+        if score > best_score:
+            best = text
+            best_score = score
+        if score >= min_chars:
+            return text
+
+    return best
+
+
+def _extract_image_ocr_blocks(
+    input_pdf: Path, *, lang: str, min_chars: int
+) -> list[ImageOcrBlock]:
+    if not _which("tesseract"):
+        _warn("image OCR skipped: missing command 'tesseract'")
+        return []
+
+    try:
+        import fitz  # type: ignore[import-not-found]
+    except Exception:
+        _warn("image OCR skipped: missing Python dependency 'pymupdf'")
+        return []
+
+    blocks: list[ImageOcrBlock] = []
+    seen_global: set[str] = set()
+
+    doc = fitz.open(str(input_pdf))
+    try:
+        for page_idx in range(doc.page_count):
+            page = doc.load_page(page_idx)
+            page_area = max(page.rect.get_area(), 1.0)
+            candidates: list[tuple[float, float, int]] = []
+            seen_rects: set[tuple[int, float, float, float, float]] = set()
+
+            for img in page.get_images(full=True):
+                xref = int(img[0])
+                for rect in page.get_image_rects(xref):
+                    key = (
+                        xref,
+                        round(rect.x0, 1),
+                        round(rect.y0, 1),
+                        round(rect.x1, 1),
+                        round(rect.y1, 1),
+                    )
+                    if key in seen_rects:
+                        continue
+                    seen_rects.add(key)
+
+                    if rect.width < 120 or rect.height < 80:
+                        continue
+                    if (rect.get_area() / page_area) < 0.02:
+                        continue
+
+                    candidates.append((rect.y0, rect.x0, xref))
+
+            candidates.sort(key=lambda t: (t[0], t[1], t[2]))
+            for order, (_, _, xref) in enumerate(candidates, start=1):
+                pix = fitz.Pixmap(doc, xref)
+                if pix.n - pix.alpha > 3:
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                if pix.alpha:
+                    pix = fitz.Pixmap(pix, 0)
+
+                with tempfile.NamedTemporaryFile(
+                    prefix="pdf-to-md-ocr-",
+                    suffix=".png",
+                    delete=True,
+                ) as tmp:
+                    pix.save(tmp.name)
+                    text = _ocr_pixmap_with_tesseract(
+                        tmp.name,
+                        lang=lang,
+                        min_chars=min_chars,
+                    )
+
+                if _alnum_count(text) < min_chars:
+                    continue
+
+                sig = _normalize_for_match(text)[:1200]
+                if len(sig) < min_chars:
+                    continue
+                if sig in seen_global:
+                    continue
+
+                seen_global.add(sig)
+                blocks.append(ImageOcrBlock(page=page_idx, order=order, text=text))
+    finally:
+        doc.close()
+
+    return blocks
+
+
+def _is_page_separator(line: str, *, backend: str) -> bool:
+    stripped = line.strip()
+    if backend == "pymupdf4llm":
+        return bool(_PYMUPDF_PAGE_END_RE.match(stripped))
+    if backend == "poppler":
+        return stripped == "---"
+    return False
+
+
+def _format_ocr_block(block: ImageOcrBlock) -> list[str]:
+    return [
+        f"[OCR_IMAGE page={block.page + 1} index={block.order}]",
+        block.text,
+        "[/OCR_IMAGE]",
+    ]
+
+
+def _inject_image_ocr_into_markdown(
+    md: str,
+    blocks: list[ImageOcrBlock],
+    *,
+    backend: str,
+) -> tuple[str, int]:
+    if not md.strip() or not blocks:
+        return md, 0
+
+    source_norm = _normalize_for_match(md)
+    filtered: list[ImageOcrBlock] = []
+    for block in blocks:
+        block_norm = _normalize_for_match(block.text)
+        if len(block_norm) < 120:
+            continue
+        probe = block_norm[:240]
+        if probe and probe in source_norm:
+            continue
+        filtered.append(block)
+
+    if not filtered:
+        return md, 0
+
+    lines = md.splitlines()
+    anchors: list[tuple[int, int]] = []
+    current_page = 0
+    for i, line in enumerate(lines):
+        if _IMAGE_ANCHOR_RE.search(line.strip()):
+            anchors.append((i, current_page))
+        if _is_page_separator(line, backend=backend):
+            current_page += 1
+
+    insert_after: dict[int, list[ImageOcrBlock]] = {}
+    used_anchor_idx: set[int] = set()
+    leftovers_by_page: dict[int, list[ImageOcrBlock]] = {}
+
+    blocks_by_page: dict[int, list[ImageOcrBlock]] = {}
+    for block in filtered:
+        blocks_by_page.setdefault(block.page, []).append(block)
+
+    for page, page_blocks in sorted(blocks_by_page.items()):
+        page_anchors = [idx for idx, page_n in anchors if page_n == page and idx not in used_anchor_idx]
+        for block in page_blocks:
+            if page_anchors:
+                anchor_idx = page_anchors.pop(0)
+                used_anchor_idx.add(anchor_idx)
+                insert_after.setdefault(anchor_idx, []).append(block)
+            else:
+                leftovers_by_page.setdefault(page, []).append(block)
+
+    free_anchors = [idx for idx, _ in anchors if idx not in used_anchor_idx]
+    for page in sorted(list(leftovers_by_page.keys())):
+        still_left: list[ImageOcrBlock] = []
+        for block in leftovers_by_page[page]:
+            if free_anchors:
+                anchor_idx = free_anchors.pop(0)
+                insert_after.setdefault(anchor_idx, []).append(block)
+            else:
+                still_left.append(block)
+        leftovers_by_page[page] = still_left
+
+    out: list[str] = []
+    inserted_count = 0
+    emitted_leftovers: set[int] = set()
+    current_page = 0
+
+    def emit_leftovers(page: int) -> None:
+        nonlocal inserted_count
+        if page in emitted_leftovers:
+            return
+        emitted_leftovers.add(page)
+        for block in leftovers_by_page.get(page, []):
+            out.append("")
+            out.extend(_format_ocr_block(block))
+            out.append("")
+            inserted_count += 1
+
+    for i, line in enumerate(lines):
+        if _is_page_separator(line, backend=backend):
+            emit_leftovers(current_page)
+
+        out.append(line)
+        for block in insert_after.get(i, []):
+            out.append("")
+            out.extend(_format_ocr_block(block))
+            out.append("")
+            inserted_count += 1
+
+        if _is_page_separator(line, backend=backend):
+            current_page += 1
+
+    emit_leftovers(current_page)
+    for page in sorted(leftovers_by_page.keys()):
+        emit_leftovers(page)
+
+    rendered = "\n".join(out).strip()
+    if rendered:
+        rendered += "\n"
+    return rendered, inserted_count
+
+
+def _apply_image_ocr_if_enabled(
+    *,
+    input_pdf: Path,
+    md: str,
+    backend: str,
+    image_ocr: bool,
+    image_ocr_lang: str,
+    image_ocr_min_chars: int,
+) -> str:
+    if not image_ocr:
+        return md
+
+    blocks = _extract_image_ocr_blocks(
+        input_pdf,
+        lang=image_ocr_lang,
+        min_chars=image_ocr_min_chars,
+    )
+    if not blocks:
+        return md
+
+    merged, inserted = _inject_image_ocr_into_markdown(md, blocks, backend=backend)
+    if inserted:
+        _warn(f"image OCR inserted {inserted} block(s)")
+    return merged
+
+
 def choose_backend_auto() -> str:
     if _which("docling"):
         return "docling"
@@ -324,15 +623,31 @@ def _normalize_argv_for_subcommands(argv: list[str]) -> list[str]:
         return argv
 
     # Find first non-option token (argparse treats it as COMMAND).
+    # Some options consume the next token as value.
+    opts_with_value = {
+        "--backend",
+        "--text-sample-pages",
+        "--text-threshold",
+    }
+
     first_pos = None
-    for i, tok in enumerate(argv):
+    i = 0
+    while i < len(argv):
+        tok = argv[i]
         if tok == "--":
             if i + 1 < len(argv):
                 first_pos = i + 1
             break
+        if any(tok.startswith(f"{opt}=") for opt in opts_with_value):
+            i += 1
+            continue
+        if tok in opts_with_value:
+            i += 2
+            continue
         if not tok.startswith("-"):
             first_pos = i
             break
+        i += 1
 
     if first_pos is None:
         return argv
@@ -417,6 +732,9 @@ def _convert_one(
     docling_ocr: bool | None,
     text_sample_pages: int,
     text_threshold: int,
+    image_ocr: bool,
+    image_ocr_lang: str,
+    image_ocr_min_chars: int,
 ) -> None:
     if output_md.exists() and not force:
         raise FileExistsError(str(output_md))
@@ -435,15 +753,28 @@ def _convert_one(
     else:
         raise RuntimeError(f"unknown backend '{backend}'")
 
+    md = _apply_image_ocr_if_enabled(
+        input_pdf=input_pdf,
+        md=md,
+        backend=backend,
+        image_ocr=image_ocr,
+        image_ocr_lang=image_ocr_lang,
+        image_ocr_min_chars=image_ocr_min_chars,
+    )
+
     _atomic_write_text(output_md, md)
 
 
 def build_parser() -> argparse.ArgumentParser:
     default_backend = os.environ.get("PDF_TO_MD_BACKEND", "poppler")
+    default_image_ocr = _env_flag("PDF_TO_MD_IMAGE_OCR", True)
+    default_image_ocr_lang = os.environ.get("PDF_TO_MD_IMAGE_OCR_LANG", "spa+eng")
+    default_image_ocr_min_chars = int(os.environ.get("PDF_TO_MD_IMAGE_OCR_MIN_CHARS", "80"))
     p = argparse.ArgumentParser(
         prog="pdf-to-md",
         description=(
             "Convert PDF to Markdown using poppler / pymupdf4llm / docling.\n"
+            "Image OCR is ON by default when local dependencies are available.\n"
             "\n"
             "Convenience behavior:\n"
             "- If INPUT does not exist, it is also searched under ./input/.\n"
@@ -456,6 +787,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  pdf-to-md --backend docling input/Doc.pdf output/Doc.docling.md\n"
             "  pdf-to-md --backend auto Doc.pdf\n"
             "  pdf-to-md --backend docling --docling-no-ocr Doc.pdf\n"
+            "  pdf-to-md --no-image-ocr input/Doc.pdf\n"
             "  pdf-to-md batch input --output-dir output --recursive\n"
             "\n"
             "Install backends:\n"
@@ -510,6 +842,20 @@ def build_parser() -> argparse.ArgumentParser:
             "Non-whitespace char threshold below which a PDF is treated as scanned.\n"
             "Env: PDF_TO_MD_TEXT_THRESHOLD\n"
         ),
+    )
+    p.add_argument(
+        "--no-image-ocr",
+        dest="image_ocr",
+        action="store_false",
+        default=default_image_ocr,
+        help=(
+            "Disable image OCR enrichment.\n"
+            "Default is enabled (env: PDF_TO_MD_IMAGE_OCR)\n"
+        ),
+    )
+    p.set_defaults(
+        image_ocr_lang=default_image_ocr_lang,
+        image_ocr_min_chars=default_image_ocr_min_chars,
     )
 
     sub = p.add_subparsers(dest="command", metavar="COMMAND", required=True)
@@ -720,6 +1066,9 @@ def _run_batch(args: argparse.Namespace, *, backend: str) -> int:
                 docling_ocr=args.docling_ocr,
                 text_sample_pages=int(args.text_sample_pages),
                 text_threshold=int(args.text_threshold),
+                image_ocr=bool(args.image_ocr),
+                image_ocr_lang=str(args.image_ocr_lang),
+                image_ocr_min_chars=int(args.image_ocr_min_chars),
             )
             return BatchResult(pdf=pdf, out=out, status="converted", backend=backend)
         except FileExistsError:
@@ -786,6 +1135,9 @@ def main(argv: list[str] | None = None) -> int:
             docling_ocr=args.docling_ocr,
             text_sample_pages=int(args.text_sample_pages),
             text_threshold=int(args.text_threshold),
+            image_ocr=bool(args.image_ocr),
+            image_ocr_lang=str(args.image_ocr_lang),
+            image_ocr_min_chars=int(args.image_ocr_min_chars),
         )
     except FileExistsError:
         return _die(f"output file '{output_md}' already exists (use --force)")
