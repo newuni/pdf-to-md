@@ -2,10 +2,19 @@ FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
   PYTHONUNBUFFERED=1 \
-  PIP_NO_CACHE_DIR=1
+  PIP_NO_CACHE_DIR=1 \
+  USER=pdf2md \
+  LOGNAME=pdf2md \
+  HOME=/tmp \
+  TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends poppler-utils \
+  && apt-get install -y --no-install-recommends \
+    poppler-utils \
+    libgl1 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-spa \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,4 +29,3 @@ RUN python -m pip install -U pip \
 
 ENTRYPOINT ["pdf-to-md"]
 CMD ["--help"]
-

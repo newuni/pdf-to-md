@@ -5,6 +5,7 @@ Convert PDFs to Markdown with multiple backends.
 ## Features
 
 - Multiple backends: `poppler`, `pymupdf4llm`, `docling`, `auto`
+- Image OCR enabled by default (local `tesseract`, when available)
 - Sensible defaults for repo workflows (`input/`, `output/`)
 - Clear failures when external dependencies are missing
 
@@ -41,18 +42,18 @@ cd pdf-to-md
 python3 scripts/convert_pdf.py input/Doc.pdf output/Doc.md
 ```
 
-### Using Docker (no local installs)
+### Using Docker (recommended)
 
-Build a minimal image (includes Poppler tools; does not include heavy optional backends):
+Build a full image with all recommended dependencies (backends + OCR):
 
 ```bash
-docker build -t pdf-to-md .
+docker build -t pdf-to-md:full --build-arg EXTRAS=full .
 ```
 
 Convert a PDF from your current directory:
 
 ```bash
-docker run --rm -u "$(id -u):$(id -g)" -v "$PWD":/work -w /work pdf-to-md input/Doc.pdf output/Doc.md
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD":/work -w /work pdf-to-md:full input/Doc.pdf output/Doc.md
 ```
 
 Convert a PDF from any local path:
@@ -64,14 +65,14 @@ OUT="/absolute/path/to/Doc.md"
 docker run --rm \
   -v "$(dirname "$PDF")":/in \
   -v "$(dirname "$OUT")":/out \
-  pdf-to-md \
+  pdf-to-md:full \
   "/in/$(basename "$PDF")" "/out/$(basename "$OUT")"
 ```
 
-Optional: build a larger image with extra backends:
+Optional minimal image (fewer dependencies, less OCR capability):
 
 ```bash
-docker build -t pdf-to-md:full --build-arg EXTRAS=full .
+docker build -t pdf-to-md .
 ```
 
 ## Backends
@@ -93,6 +94,21 @@ docker build -t pdf-to-md:full --build-arg EXTRAS=full .
 ```bash
 pdf-to-md --backend auto input/Doc.pdf
 pdf-to-md --backend docling input/Doc.pdf output/Doc.docling.md
+```
+
+Image OCR is on by default. Disable only if needed:
+
+```bash
+pdf-to-md --no-image-ocr input/Doc.pdf output/Doc.md
+```
+
+When OCR text is extracted from an image, it is inserted near the related image
+context with explicit tags:
+
+```md
+[OCR_IMAGE page=3 index=2]
+...texto extraido por OCR...
+[/OCR_IMAGE]
 ```
 
 Bulk conversion (directories):
@@ -119,7 +135,8 @@ python3 -m pip install -e ".[docling,pymupdf4llm]"
 ## Notes
 
 - `docling` and `poppler` depend on external binaries/environment; the CLI will fail with a clear error if something is missing.
-- Scanned PDFs: an OCR pre-step can be added later (for now we only do a lightweight "looks scanned" detection and warn).
+- Image OCR uses local `tesseract` plus `pymupdf` image extraction.
+- If OCR dependencies are missing, conversion still succeeds and prints a warning.
 
 ## Security
 
