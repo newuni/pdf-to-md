@@ -45,7 +45,6 @@ def _env_flag(name: str, default: bool) -> bool:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
-
 def _read_stdin_text() -> str:
     return sys.stdin.read()
 
@@ -256,6 +255,10 @@ def convert_with_docling(
             ocr = True
         else:
             ocr = False
+    prefer_tesseract = _env_flag("PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR", True)
+    use_tesseract_ocr = bool(ocr and prefer_tesseract and _which("tesseract"))
+    if ocr and prefer_tesseract and not use_tesseract_ocr:
+        _warn("docling OCR fallback to auto engine because 'tesseract' is not available.")
 
     with tempfile.TemporaryDirectory(prefix="pdf-to-md-docling-") as outdir:
         cmd = [
@@ -270,8 +273,10 @@ def convert_with_docling(
             "placeholder",
             "--no-enable-remote-services",
             "--ocr" if ocr else "--no-ocr",
-            str(input_pdf),
         ]
+        if use_tesseract_ocr:
+            cmd.extend(["--ocr-engine", "tesseract"])
+        cmd.append(str(input_pdf))
 
         subprocess.run(cmd, check=True)
 

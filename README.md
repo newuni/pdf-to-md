@@ -69,6 +69,10 @@ docker run --rm \
   "/in/$(basename "$PDF")" "/out/$(basename "$OUT")"
 ```
 
+For `--backend docling --docling-ocr`, the CLI prefers `tesseract` OCR when
+available (`PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR=1` by default), which keeps
+rootless Docker runs stable.
+
 Optional minimal image (fewer dependencies, less OCR capability):
 
 ```bash
@@ -135,6 +139,8 @@ python3 -m pip install -e ".[docling,pymupdf4llm]"
 ## Notes
 
 - `docling` and `poppler` depend on external binaries/environment; the CLI will fail with a clear error if something is missing.
+- Docling OCR prefers `tesseract` by default when available. Set
+  `PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR=0` to keep Docling's auto OCR engine.
 - Image OCR uses local `tesseract` plus `pymupdf` image extraction.
 - If OCR dependencies are missing, conversion still succeeds and prints a warning.
 

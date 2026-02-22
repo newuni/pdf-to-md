@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1
+
+- Fixed rootless Docker failures for `--backend docling --docling-ocr` by
+  preferring `docling --ocr-engine tesseract` when available.
+- Added `PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR` (default: enabled) to control
+  this behavior.
+- Docker runtime env now sets `XDG_CACHE_HOME=/tmp/.cache`.
+- Updated README with the new docling OCR runtime behavior.
+
 ## 1.2.0
 
 - Added default image OCR enrichment (local tesseract) for image-heavy PDFs.
