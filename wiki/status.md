@@ -19,11 +19,13 @@
 | T07 | Set Docker as preferred execution mode in agent guidelines | Completada | `AGENTS.md` updated under "Build, Test, and Development Commands" with explicit default preference for Docker execution (`pdf-to-md:full`) and fallback to local `.venv` only when needed | Use Docker-first commands in future conversion runs |
 | T08 | Convert external DEPLOYED PDF with Docker-first advanced backend | Completada | Ran Docker conversion with advanced backend and OCR: `docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v /tmp/pdf-to-md-rapidocr-models:/usr/local/lib/python3.12/site-packages/rapidocr/models -v "/Users/unai/Documents/git/kwido-vc-debug/extra-context":/in -v "/Users/unai/Documents/git/kwido-vc-debug/extra-context":/out pdf-to-md:full --backend docling --docling-ocr convert "/in/20251201.127 - DEPLOYED [cmval].pdf" "/out/20251201.127 - DEPLOYED [cmval].md"`; result: `Warning: image OCR inserted 4 block(s)`; output created (`4.3K`, `151` lines) | Reuse same Docker model cache mount for subsequent OCR runs |
 | T09 | Fix Docker rootless `docling --ocr` reliability | Completada | `pdf_to_md/cli.py` updated so `--docling-ocr` prefers `--ocr-engine tesseract` by default (`PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR=1`), avoiding rapidocr permission/download failures under non-root Docker; validated with `docker run --rm -u "$(id -u):$(id -g)" ... pdf-to-md:full --backend docling --docling-ocr "/in/[MEDIA] Precargar Equipo EZIA y Responsable al crear un caso.pdf" "/out/[MEDIA] Precargar Equipo EZIA y Responsable al crear un caso.ocrfix.md"`; conversion finished successfully with OCR blocks inserted | Prepare and publish patch release with changelog notes |
+| T10 | Publish patch release `v1.2.1` | Completada | Bumped `pyproject.toml` + `pdf_to_md/__init__.py` to `1.2.1`; updated `CHANGELOG.md`; committed (`57cca4f`), pushed `main`, tagged and pushed `v1.2.1`; GitHub release published at `https://github.com/newuni/pdf-to-md/releases/tag/v1.2.1` (`publishedAt: 2026-02-22T09:50:04Z`) | Monitor community feedback and add regression tests for docling OCR engine selection |
 
 ## Releases
 
 | Version | Date (UTC) | Notes |
 |---|---:|---|
+| v1.2.1 | 2026-02-22 | Rootless Docker fix for `docling --ocr` (prefer `tesseract` engine by default), new env toggle `PDF_TO_MD_DOCLING_PREFER_TESSERACT_OCR`, Docker cache env (`XDG_CACHE_HOME`) |
 | v1.2.0 | 2026-02-21 | Default image OCR enrichment (`[OCR_IMAGE ...]`), Docker full OCR/runtime fixes (`tesseract` + `libgl1`), README update |
 | v1.1.0 | 2026-02-17 | Cleanup release (removed obsolete legacy scripts) |
 | v1.0.0 | 2026-02-17 | Initial stable release |
