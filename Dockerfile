@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
   USER=pdf2md \
   LOGNAME=pdf2md \
   HOME=/tmp \
+  XDG_CACHE_HOME=/tmp/.cache \
   TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor
 
 RUN apt-get update \
