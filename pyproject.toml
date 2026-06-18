@@ -20,10 +20,10 @@ dependencies = []
 
 [project.optional-dependencies]
 full = [
-  "docling>=2.0.0",
+  "docling>=2.103.0",
   "pymupdf4llm>=0.3.0",
 ]
-docling = ["docling>=2.0.0"]
+docling = ["docling>=2.103.0"]
 pymupdf4llm = ["pymupdf4llm>=0.3.0"]
 
 [project.urls]
