@@ -27,6 +27,7 @@ Thumbs.db
 # Artifacts
 input/*
 output/*
+wiki/status.md
 !input/.gitkeep
 !output/.gitkeep
 
