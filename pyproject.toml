@@ -20,11 +20,11 @@ dependencies = []
 
 [project.optional-dependencies]
 full = [
-  "docling>=2.0.0",
-  "pymupdf4llm>=0.3.0",
+  "docling>=2.107.0",
+  "pymupdf4llm>=1.27.2.3",
 ]
-docling = ["docling>=2.0.0"]
-pymupdf4llm = ["pymupdf4llm>=0.3.0"]
+docling = ["docling>=2.107.0"]
+pymupdf4llm = ["pymupdf4llm>=1.27.2.3"]
 
 [project.urls]
 Homepage = "https://github.com/newuni/pdf-to-md"
